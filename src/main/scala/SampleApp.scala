@@ -14,7 +14,9 @@ import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 
 object Channel {
-  def create = {
+
+  // channel is thread safe
+  val instance = {
     val channelImpl = NettyChannelBuilder
       .forAddress("pubsub.googleapis.com", 443)
       .negotiationType(NegotiationType.TLS)
@@ -32,7 +34,7 @@ object Channel {
 object SampleApp extends App {
 
   // Create a stub using the channel that has the bound credential
-  val publisherStub = PublisherGrpc.newBlockingStub(Channel.create)
+  val publisherStub = PublisherGrpc.newBlockingStub(Channel.instance)
   val request = ListTopicsRequest.newBuilder()
     .setPageSize(10)
     .setProject("projects/alpine-effort-157513")
@@ -48,24 +50,23 @@ object SampleApp extends App {
 
 object SubscribeApp extends App {
 
-  val subscriber = SubscriberGrpc.newStub(Channel.create)
-
-
-  def pull: Future[Unit] = Future {
-    subscriber.pull(
-      PullRequest.newBuilder()
+  val subscriber = SubscriberGrpc.newStub(Channel.instance)
+  val req = PullRequest.newBuilder()
         .setSubscription("projects/alpine-effort-157513/subscriptions/my-sub2")
         .setMaxMessages(10)
         .build()
-      ,
+
+  def pull: Future[Unit] = Future {
+    println("pulling... ", Thread.currentThread().getId)
+    subscriber.pull(req,
       new StreamObserver[PullResponse] {
         override def onError(t: Throwable): Unit = println(t)
         override def onCompleted(): Unit = {
-          println("completed!")
+          println("completed!", Thread.currentThread().getId)
           pull
         }
         override def onNext(res: PullResponse): Unit = {
-          println("next!")
+          println("next!", Thread.currentThread().getId)
           println(s"received: ${res.getReceivedMessagesCount}")
         }
       }
@@ -90,6 +91,6 @@ object PublishApp extends App {
     .addMessages(msg)
     .build()
 
-  PublisherGrpc.newBlockingStub(Channel.create).publish(req)
+  PublisherGrpc.newBlockingStub(Channel.instance).publish(req)
 
 }
