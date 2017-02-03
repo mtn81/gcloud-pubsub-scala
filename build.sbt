@@ -2,7 +2,7 @@ import sbtprotobuf.{ProtobufPlugin=>PB}
 
 PB.protobufSettings
 
-name := "pubsub-sample"
+name := "gloud-pubsub-sample"
 
 version := "1.0"
 
